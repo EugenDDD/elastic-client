@@ -1,0 +1,4 @@
+server: http://10.96.212.210
+port: 9200
+user: eugen.lupului@metrosystems.net
+pass: ""

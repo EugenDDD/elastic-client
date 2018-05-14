@@ -1,0 +1,174 @@
+package cmd
+
+import (
+	"context"
+	"elastic-search/global"
+	"elastic-search/util"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"strings"
+	"time"
+
+	"github.com/olivere/elastic"
+	"github.com/spf13/cobra"
+	yaml "gopkg.in/yaml.v2"
+)
+
+var getLogCmd = &cobra.Command{
+	Use:   "get-log",
+	Short: "Get elastic log",
+	Long:  `Get elastic config details`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+
+		configSerial, err = ioutil.ReadFile("/home/eugen/go/src/elastic/config/cobra.yml")
+		if err != nil {
+			panic(err)
+		}
+		err = yaml.Unmarshal(configSerial, &config)
+		if err != nil {
+			panic(err)
+		}
+
+		key := "elastic the the best way to use logs"
+		config.Pass, err = util.DecryptString(config.Pass, key)
+		if err != nil {
+			panic("Error when dec string")
+		}
+
+		client, err = elastic.NewClient(
+			elastic.SetURL(fmt.Sprintf("%s:%s", config.Server, fmt.Sprintf("%v", config.Port))),
+			elastic.SetHealthcheck(false),
+			elastic.SetSniff(false),
+			elastic.SetBasicAuth(config.User, config.Pass),
+		)
+
+		if err != nil {
+			fmt.Println("Cannot create client for server:", config.Server)
+			return
+		}
+
+	},
+
+	Run: func(cmd *cobra.Command, args []string) {
+
+		now := time.Now()
+		backTo := now.AddDate(0, 0, -getFlags.DaysBack)
+
+		noFlag := true
+		query := elastic.NewBoolQuery()
+
+		if cmd.PersistentFlags().Lookup("days-back").Changed {
+			noFlag = false
+		}
+		// query.Filter(elastic.NewRangeQuery("@timestamp").Gte(backTo).Lt(now))
+
+		query.Must(elastic.NewRangeQuery("@timestamp").Gte(backTo).Lt(now))
+
+		if cmd.PersistentFlags().Lookup("route-id").Changed {
+			noFlag = false
+			aQuery := elastic.NewBoolQuery()
+			for _, value := range getQueryForMultipleFlagValues("route-id", getFlags.RouteID) {
+				aQuery.Should(value)
+			}
+			aQuery.MinimumNumberShouldMatch(1)
+			query.Should(aQuery)
+		}
+
+		// key2Query := elastic.NewBoolQuery()
+		if cmd.PersistentFlags().Lookup("key2").Changed {
+			noFlag = false
+			aQuery := elastic.NewBoolQuery()
+			for _, value := range getQueryForMultipleFlagValues("key2", getFlags.Key2) {
+				aQuery.Should(value)
+
+			}
+			aQuery.MinimumNumberShouldMatch(1)
+			query.Should(aQuery)
+		}
+
+		if noFlag {
+			fmt.Printf("Please provide at least one flag!\n\n")
+			cmd.Usage()
+			return
+		}
+
+		variable, err := query.Source()
+		if err != nil {
+			panic(err)
+		}
+
+		data, err := json.Marshal(variable)
+		if err != nil {
+			panic(err)
+		}
+		got := string(data)
+
+		fmt.Println(got)
+
+		query.MinimumNumberShouldMatch(1)
+
+		searchResults, err := client.Search().Index("*mw_mcc_prod*").Query(query).From(0).Size(getFlags.Results).Do(context.Background())
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Printf("Query took %d milliseconds\n", searchResults.TookInMillis)
+		if searchResults.Hits.TotalHits > 0 {
+			fmt.Printf("Found %d results\n\n", searchResults.Hits.TotalHits)
+			for _, hit := range searchResults.Hits.Hits {
+				var result global.Result
+
+				json.Unmarshal(*hit.Source, &result)
+				// fmt.Printf("%d | %d | %d\n", index, cap(results), len(results))
+
+				// now := time.Now()
+				// fmt.Println(now)
+				// fmt.Println(now.AddDate(0, 0, -4))
+				// break
+				// if result.TimeStamp.Before(now) && result.TimeStamp.After(now.AddDate(0, 0, -10)) {
+
+				// }
+				// fmt.Println(result.String())
+				// fmt.Println()
+				results = append(results, result)
+				// }
+			}
+		} else {
+			fmt.Println("No results found!")
+		}
+
+		if cmd.PersistentFlags().Lookup("to-file").Changed {
+			util.WriteResults(results)
+		}
+	},
+}
+
+func init() {
+	getLogCmd.PersistentFlags().StringVarP(&getFlags.RouteID, "route-id", "", "", "Set RouteID")
+	getLogCmd.PersistentFlags().StringVarP(&getFlags.UUID, "uuid", "", "", "Set UUID")
+	getLogCmd.PersistentFlags().StringVarP(&getFlags.Service, "service", "", "", "Set service")
+	getLogCmd.PersistentFlags().StringVarP(&getFlags.Store, "store", "", "", "Set store")
+	getLogCmd.PersistentFlags().StringVarP(&getFlags.Key1, "key1", "", "", "Set Key1")
+	getLogCmd.PersistentFlags().StringVarP(&getFlags.Key2, "key2", "", "", "Set Key2")
+	getLogCmd.PersistentFlags().StringVarP(&getFlags.Key3, "key3", "", "", "Set Key3")
+	getLogCmd.PersistentFlags().StringVarP(&getFlags.Key4, "key4", "", "", "Set Key4")
+	getLogCmd.PersistentFlags().StringVarP(&getFlags.Key4, "status", "", "", "Set status")
+
+	getLogCmd.PersistentFlags().IntVarP(&getFlags.DaysBack, "days-back", "", 1, "Set days back")
+	getLogCmd.PersistentFlags().IntVarP(&getFlags.Results, "results", "", 1000, "Set results")
+	getLogCmd.PersistentFlags().BoolVarP(&getFlags.ToFile, "to-file", "F", false, "Send results to \"results.log\" file")
+}
+
+func getQueryForMultipleFlagValues(field, params string) []*elastic.MatchPhraseQuery {
+
+	values := strings.Split(params, ",")
+	query := []*elastic.MatchPhraseQuery{}
+
+	for _, value := range values {
+		aQuery := elastic.NewMatchPhraseQuery(field, value)
+		query = append(query, aQuery)
+	}
+
+	return query
+}
