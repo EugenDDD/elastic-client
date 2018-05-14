@@ -34,7 +34,7 @@ var getLogCmd = &cobra.Command{
 		}
 
 		// check connection to global.Server
-		if !isReacheable(config.Server) {
+		if ok, err := isReacheable(config.Server); err == nil && !ok {
 			panic(fmt.Sprintf("No ping response to kibana server: %s", config.Server))
 		}
 
@@ -169,7 +169,7 @@ var getLogCmd = &cobra.Command{
 		}
 
 		if cmd.PersistentFlags().Lookup("to-file").Changed {
-			util.WriteResults(results)
+			util.WriteResults(results, "./results.log")
 		}
 	},
 }
@@ -223,20 +223,21 @@ func updateQuery(query *elastic.BoolQuery, isFirstFlag bool, name, values string
 	}
 }
 
-func isReacheable(ipAddress string) bool {
+func isReacheable(ipAddress string) (bool, error) {
 
 	var exp = regexp.MustCompile(`^http://`)
 	ipAddress = exp.ReplaceAllString(ipAddress, "")
 
 	if runtime.GOOS == "windows" {
-		if err := exec.Command("ping", ipAddress, "-n 1", "-i 1").Run(); err != nil {
-			return false
+		fmt.Println(ipAddress)
+		if err := exec.Command("ping", ipAddress, "-n 2").Run(); err != nil {
+			return false, err
 		}
 	} else {
 		if err := exec.Command("ping", ipAddress, "-c 1", "-i 1").Run(); err != nil {
-			return false
+			return false, err
 		}
 	}
 
-	return true
+	return true, nil
 }

@@ -12,17 +12,18 @@ import (
 	"io"
 	"os"
 	"sync"
-	"time"
 )
 
 var lock sync.Mutex
 
 // WriteResults - the method to write results to file
-func WriteResults(values []global.Result) {
+func WriteResults(values []global.Result, file string) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	f, err := os.Create(fmt.Sprintf("/home/eugen/go/src/elastic-search/config/results-%v.log", time.Now().Location()))
+	// f, err := os.Create(fmt.Sprintf("/home/eugen/go/src/elastic-search/config/results-%v.log", time.Now().Location()))
+	f, err := os.Create(file)
+
 	if err != nil {
 		panic(err)
 	}
