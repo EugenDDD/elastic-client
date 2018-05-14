@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+var version bool
+
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use: "elastic-search",
@@ -18,6 +20,12 @@ var RootCmd = &cobra.Command{
 	// applications in go using Cobra CLI library`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
+
+		if cmd.PersistentFlags().Lookup("version").Changed {
+			fmt.Println(fmt.Sprintf("running elastic-search v%s.%s.%s", global.CurrentVersion.Major, global.CurrentVersion.Minor, global.CurrentVersion.Patch))
+			return
+		}
+
 		cmd.Usage()
 	},
 }
@@ -33,8 +41,10 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+	RootCmd.PersistentFlags().BoolVarP(&version, "version", "v", false, "Elastic-search version")
 	RootCmd.AddCommand(configCmd)
 	RootCmd.AddCommand(getLogCmd)
+
 }
 
 // initConfig reads in config file and ENV variables if set.
