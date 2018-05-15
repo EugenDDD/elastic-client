@@ -21,8 +21,8 @@ var RootCmd = &cobra.Command{
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		if cmd.PersistentFlags().Lookup("version").Changed {
-			fmt.Println(fmt.Sprintf("running elastic-search v%s.%s.%s", global.CurrentVersion.Major, global.CurrentVersion.Minor, global.CurrentVersion.Patch))
+		if cmd.Flags().Lookup("version").Changed {
+			fmt.Println(fmt.Sprintf("Running elastic-search v%s.%s.%s", global.CurrentVersion.Major, global.CurrentVersion.Minor, global.CurrentVersion.Patch))
 			return
 		}
 
@@ -41,7 +41,7 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	RootCmd.PersistentFlags().BoolVarP(&version, "version", "v", false, "Elastic-search version")
+	RootCmd.Flags().BoolVarP(&version, "version", "v", false, "Elastic-search version")
 	RootCmd.AddCommand(configCmd)
 	RootCmd.AddCommand(getLogCmd)
 

@@ -59,7 +59,7 @@ var getLogCmd = &cobra.Command{
 
 	Run: func(cmd *cobra.Command, args []string) {
 
-		env := fmt.Sprintf("*mw_%s_%s*", getFlags.Salesline, getFlags.Environment)
+		index := getFlags.Index
 
 		noFlag := true
 		query := elastic.NewBoolQuery().Must(elastic.NewMatchAllQuery())
@@ -146,7 +146,7 @@ var getLogCmd = &cobra.Command{
 		// got := string(data)
 
 		// fmt.Println(got)
-		searchResults, err := client.Search().Index(env).Query(query).From(0).Size(getFlags.Results).Do(context.Background())
+		searchResults, err := client.Search().Index(index).Query(query).From(0).Size(getFlags.Results).Do(context.Background())
 		if err != nil {
 			panic(err)
 		}
@@ -177,7 +177,7 @@ var getLogCmd = &cobra.Command{
 func init() {
 
 	getLogCmd.PersistentFlags().StringVarP(&getFlags.Salesline, "salesline", "", "mcc", "Set salesline for index search")
-	getLogCmd.PersistentFlags().StringVarP(&getFlags.Environment, "env", "", "prod", "Set environment")
+	getLogCmd.PersistentFlags().StringVarP(&getFlags.Index, "index", "", "*mw_mcc_prod*", "Set index")
 
 	getLogCmd.PersistentFlags().StringVarP(&getFlags.RouteID, "route-id", "", "", "Set RouteID")
 	getLogCmd.PersistentFlags().StringVarP(&getFlags.Country, "country", "", "", "Set country")
